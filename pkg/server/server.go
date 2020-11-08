@@ -71,10 +71,14 @@ func (s *Server) handle(conn net.Conn) {
 	requestLine := string(data[:requestLineEnd])
 	parts := strings.Split(requestLine, " ")
 	if len(parts) != 3 {
+		log.Print("length: ", parts)
 		return
 	}
+	s.mu.RLock()
 
 	if hadler, ok := s.handlers[parts[1]]; ok {
+		s.mu.RUnlock()
+
 		hadler(conn)
 	}
 	return

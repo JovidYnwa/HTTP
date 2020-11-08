@@ -1,13 +1,14 @@
 package main
 
 import (
-	"HTTP/pkg/server"
 	"bytes"
 	"io/ioutil"
 	"log"
 	"net"
 	"os"
 	"strconv"
+
+	"github.com/JovidYnwa/http/pkg/server"
 )
 
 func main() {
