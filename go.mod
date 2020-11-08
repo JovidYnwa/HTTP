@@ -1,3 +1,3 @@
-module github.com/JovidYnwa/HTTP
+module github.com/JovidYnwa/http
 
 go 1.15
