@@ -1,29 +1,24 @@
 package main
 
 import (
-	"bytes"
-	"io/ioutil"
-	"log"
-	"net"
-	"os"
-	"strconv"
+	"fmt"
 
 	"github.com/JovidYnwa/http/pkg/server"
 )
 
 func main() {
-	host := "0.0.0.0"
-	port := "9999"
+	/* 	host := "0.0.0.0"
+	   	port := "9999"
 
-	if err := execute(host, port); err != nil {
-		os.Exit(1)
-	}
-
-	//fmt.Println(server.Some())
+	   	if err := execute(host, port); err != nil {
+	   		os.Exit(1)
+	   	}
+	*/
+	fmt.Println(server.Remide())
 }
 
-func execute(host string, port string) (err error) {
-	srv := server.NewSever(net.JoinHostPort(host, port))
+/* func execute(host string, port string) (err error) {
+	srv := server.NewServer(net.JoinHostPort(host, port))
 
 	srv.Register("/", func(conn net.Conn) {
 		body, err := ioutil.ReadFile("static/index.html")
@@ -63,7 +58,7 @@ func execute(host string, port string) (err error) {
 		}
 	})
 	return srv.Start()
-}
+} */
 
 /* func execute(host string, port string) (err error) {
 	listener, err := net.Listen("tcp", net.JoinHostPort(host, port))
