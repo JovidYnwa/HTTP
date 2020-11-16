@@ -2,10 +2,8 @@ package app
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"path/filepath"
 	"strconv"
 
 	"github.com/JovidYnwa/http/pkg/banners"
@@ -97,10 +95,10 @@ func (s *Server) handleSaveBanner(writer http.ResponseWriter, request *http.Requ
 
 	banner := &banners.Banner{
 		ID:      id,
-		Title:   request.PostFormValue("title"),
-		Content: request.PostFormValue("content"),
-		Link:    request.PostFormValue("link"),
-		Button:  request.PostFormValue("button"),
+		Title:   request.URL.Query().Get("title"),
+		Content: request.URL.Query().Get("content"),
+		Link:    request.URL.Query().Get("link"),
+		Button:  request.URL.Query().Get("button"),
 	}
 
 	item, err := s.bannerSvc.Save(request.Context(), banner)
@@ -108,34 +106,6 @@ func (s *Server) handleSaveBanner(writer http.ResponseWriter, request *http.Requ
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
-	}
-
-	err = request.ParseMultipartForm(10 * 1024 * 1024)
-	if err != nil {
-		log.Print(err)
-	}
-
-	//log.Print(request.FormFile("image"))
-	file, header, err := request.FormFile("image")
-	if err != nil {
-		log.Print(err)
-	} else {
-		defer file.Close()
-		dir := "web/banners/"
-		extension := filepath.Ext(header.Filename)
-		fileName := strconv.FormatInt(item.ID, 10) + extension
-
-		fileBytes, err := ioutil.ReadAll(file)
-		if err != nil {
-			log.Println(err)
-		}
-
-		err = ioutil.WriteFile(dir+fileName, fileBytes, 0666)
-		if err != nil {
-			log.Print(err)
-		}
-
-		item.Image = fileName
 	}
 
 	data, err := json.Marshal(item)
