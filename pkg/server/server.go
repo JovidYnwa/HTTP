@@ -6,17 +6,16 @@ import (
 	"log"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 )
 
-type HandlerFunc func(req *Request)
+type HadlelerFunc func(req *Request)
 
 type Server struct {
 	addr     string
 	mu       sync.RWMutex
-	handlers map[string]HandlerFunc
+	handlers map[string]HadlelerFunc
 }
 
 type Request struct {
@@ -26,10 +25,10 @@ type Request struct {
 }
 
 func NewServer(addr string) *Server {
-	return &Server{addr: addr, handlers: make(map[string]HandlerFunc)}
+	return &Server{addr: addr, handlers: make(map[string]HadlelerFunc)}
 }
 
-func (s *Server) Register(path string, handler HandlerFunc) {
+func (s *Server) Register(path string, handler HadlelerFunc) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.handlers[path] = handler
@@ -49,88 +48,130 @@ func (s *Server) Start() error {
 			continue
 		}
 
-		go s.handle(Request{Conn: conn})
-
+		err = s.handle(&Request{Conn: conn, QueryParams: url.Values{}})
+		if err != nil {
+			log.Print(err)
+			// Идём обслуживать следующего
+			continue
+		}
 	}
 }
 
-func (s *Server) handle(req Request) {
+func (s *Server) handle(req *Request) (err error) {
 	defer func() {
-		if closeErr := req.Conn.Close(); closeErr != nil {
-			log.Println(closeErr)
+		if cerr := req.Conn.Close(); cerr != nil {
+			if err == nil {
+				err = cerr
+				return
+			}
+			log.Print(err)
 		}
 	}()
+	// .....
+
+	//conn.Write([]byte("Hello!\r\n"))
 
 	buf := make([]byte, 4096)
+
 	n, err := req.Conn.Read(buf)
 	if err == io.EOF {
 		log.Printf("%s", buf[:n])
+		return nil
 	}
+
+	if err != nil {
+		log.Print(err)
+		return err
+	}
+	//log.Printf("%s", buf[:n])
 
 	data := buf[:n]
 	requestLineDelim := []byte{'\r', '\n'}
 	requestLineEnd := bytes.Index(data, requestLineDelim)
 	if requestLineEnd == -1 {
-		log.Print("requestLineEndErr: ", requestLineEnd)
 	}
 
 	requestLine := string(data[:requestLineEnd])
 	parts := strings.Split(requestLine, " ")
 	if len(parts) != 3 {
-		log.Print("partsErr: ", parts)
 	}
 
-	path := parts[1]
-	if strings.Contains(path, "payments") {
-		uri, err := url.ParseRequestURI(path)
-		if err != nil {
-			log.Println("url query parse err: ", err)
-		}
+	method, path, version := parts[0], parts[1], parts[2]
+	if method != "GET" {
 
-		if uri.RawQuery != "" {
-			req.QueryParams = uri.Query()
-			log.Println(req.QueryParams["id"])
-			_, err = req.Conn.Write([]byte(s.Response("ID: " + req.QueryParams["id"][0])))
-		} else {
-			split := strings.Split(uri.Path, "/payments/")
-			m := make(map[string]string)
-			m["id"] = split[1]
-			req.PathParams = m
-			log.Println(req.PathParams["id"])
-			_, err = req.Conn.Write([]byte(s.Response("ID: " + req.PathParams["id"])))
-		}
-
-		path = uri.Path
 	}
-	if err != nil {
-		log.Print(err)
+
+	if version != "HTTP/1.1" {
+
 	}
 
 	s.mu.RLock()
-	if handler, ok := s.handlers[path]; ok {
-		s.mu.RUnlock()
-		handler(&req)
-	}
-	return
-}
-
-func (s *Server) RouteHandler(body string) func(req *Request) {
-	return func(req *Request) {
-		_, err := req.Conn.Write([]byte(s.Response(body)))
-		if err != nil {
-			log.Print(err)
+	for name, handler := range s.handlers {
+		pth := path
+		ind := bytes.Index([]byte(pth), []byte("?"))
+		if ind != -1 {
+			pth = pth[:ind]
 		}
+
+		ok := req.ParsePathParams(pth, name)
+		//log.Print("path")
+		log.Print(path)
+
+		if ok {
+			s.mu.RUnlock()
+			params, err := url.ParseRequestURI(method + ":" + s.addr + ":/" + path)
+			if err != nil {
+				log.Print(err)
+				break
+			}
+
+			req.QueryParams = url.Values(params.Query())
+
+			handler(req)
+			break
+		}
+
 	}
+	return nil
+
 }
 
-func (s *Server) Response(body string) string {
-	return "HTTP/1.1 200 OK\r\n" +
-		"Content-Length: " + strconv.Itoa(len(body)) + "\r\n" +
-		"Content-Type: text/html\r\n" +
-		"Connection: close\r\n" +
-		"\r\n" + body
+// ParsePathParams ....
+func (req *Request) ParsePathParams(path string, name string) bool {
+	params := map[string]string{}
+
+	pth := strings.Split(path, "/")
+	nm := strings.Split(name, "/")
+	pth = pth[1:]
+	nm = nm[1:]
+
+	if len(pth) != len(nm) {
+		return false
+	}
+
+	for i, el := range nm {
+		if pth[i] != el && el[0] != '{' {
+			if el[len(el)-1] != '}' {
+				return false
+			} else {
+				for j := 0; j < len(el); j++ {
+					if el[j] == '{' && j != 0 {
+						params[el[j+1:len(el)-1]] = pth[i][j:len(pth[i])]
+					}
+				}
+				continue
+			}
+		} else if pth[i] == el {
+			continue
+		}
+		params[el[1:len(el)-1]] = pth[i]
+		log.Print(el[1:len(el)-1], " = ", pth[i])
+	}
+	log.Print(params)
+	req.PathParams = params
+	return true
 }
 
-func Remide() string {
-	return "smth"
+func Some() string {
+	return "hey"
 }
