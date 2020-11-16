@@ -9,19 +9,19 @@ import (
 	"sync"
 )
 
-// Service представляет собой сервис по управлению баннерами
+// Service type
 type Service struct {
 	mu    sync.RWMutex
 	items []*Banner
 	index int64
 }
 
-// NewService создаёт сервис
+// NewService some
 func NewService() *Service {
 	return &Service{items: make([]*Banner, 0)}
 }
 
-// Banner баннер
+// Banner some
 type Banner struct {
 	ID      int64
 	Title   string
@@ -31,7 +31,7 @@ type Banner struct {
 	Image   string
 }
 
-// All возврашает все существующие баннеры
+// All returns everything
 func (s *Service) All(ctx context.Context) ([]*Banner, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -43,7 +43,7 @@ func (s *Service) All(ctx context.Context) ([]*Banner, error) {
 	return nil, errors.New("No banners")
 }
 
-// ByID возврашает баннер по идентификатору
+// ByID returns by id
 func (s *Service) ByID(ctx context.Context, id int64) (*Banner, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -57,7 +57,7 @@ func (s *Service) ByID(ctx context.Context, id int64) (*Banner, error) {
 	return nil, errors.New("item not found")
 }
 
-// Save сохроняет/обновляет баннер
+// Save saves
 func (s *Service) Save(ctx context.Context, item *Banner) (*Banner, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -98,7 +98,7 @@ func (s *Service) Save(ctx context.Context, item *Banner) (*Banner, error) {
 
 }
 
-// RemoveByID удаляет баннер по идентификатору
+// RemoveByID removes
 func (s *Service) RemoveByID(ctx context.Context, id int64) (*Banner, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
