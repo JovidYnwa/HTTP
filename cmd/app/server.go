@@ -3,14 +3,15 @@ package app
 import (
 	"encoding/json"
 	"log"
-	"net/http"
 	"strconv"
-
+	"net/http"
+	"io/ioutil"
+	"path/filepath"
 	"github.com/JovidYnwa/http/pkg/banners"
 )
 
 type Server struct {
-	mux       *http.ServeMux
+	mux *http.ServeMux
 	bannerSvc *banners.Service
 }
 
@@ -18,7 +19,7 @@ func NewServer(mux *http.ServeMux, bannerSvc *banners.Service) *Server {
 	return &Server{mux: mux, bannerSvc: bannerSvc}
 }
 
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request){
 	s.mux.ServeHTTP(w, r)
 }
 
@@ -31,19 +32,13 @@ func (s *Server) Init() {
 
 func (s *Server) handleGetAllBanners(writer http.ResponseWriter, request *http.Request) {
 	items, err := s.bannerSvc.All(request.Context())
-	if err != nil {
-		log.Print(err)
-		http.Error(writer, http.StatusText(http.StatusNotImplemented), http.StatusNotImplemented)
-		return
-	}
-
 	data, err := json.Marshal(items)
 	if err != nil {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
+	
 	writer.Header().Set("Content-Type", "application/json")
 	_, err = writer.Write(data)
 	if err != nil {
@@ -74,7 +69,7 @@ func (s *Server) handleGetBannerByID(writer http.ResponseWriter, request *http.R
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
+	
 	writer.Header().Set("Content-Type", "application/json")
 	_, err = writer.Write(data)
 	if err != nil {
@@ -86,19 +81,17 @@ func (s *Server) handleSaveBanner(writer http.ResponseWriter, request *http.Requ
 
 	var id int64
 
-	if request.URL.Query().Get("id") != "" {
-		idParam := request.URL.Query().Get("id")
-		//if request.PostFormValue("id") != "" {
-		//	idParam := request.PostFormValue("id")
-		id, _ = strconv.ParseInt(idParam, 10, 64)
-	}
-
-	banner := &banners.Banner{
-		ID:      id,
-		Title:   request.URL.Query().Get("title"),
-		Content: request.URL.Query().Get("content"),
-		Link:    request.URL.Query().Get("link"),
-		Button:  request.URL.Query().Get("button"),
+	if request.PostFormValue("id")!= ""{
+		idParam := request.PostFormValue("id")
+		id, _= strconv.ParseInt(idParam, 10, 64)
+	} 
+	
+	banner :=  &banners.Banner{
+		ID:			id,
+		Title: 		request.PostFormValue("title"),
+		Content: 	request.PostFormValue("content"),
+		Link: 		request.PostFormValue("link"),
+		Button: 	request.PostFormValue("button"),
 	}
 
 	item, err := s.bannerSvc.Save(request.Context(), banner)
@@ -108,13 +101,41 @@ func (s *Server) handleSaveBanner(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 
+	err = request.ParseMultipartForm(10*1024*1024)
+	if err != nil {
+		log.Print(err)
+	}
+
+	//log.Print(request.FormFile("image"))
+	file, header, err := request.FormFile("image")
+	if err != nil {
+		log.Print(err)
+	} else {
+		defer file.Close()
+		dir := "web/banners/"
+		extension := filepath.Ext(header.Filename)
+		fileName :=  strconv.FormatInt(item.ID, 10)+extension
+
+		fileBytes, err := ioutil.ReadAll(file)
+		if err != nil {
+			log.Println(err)
+		}
+		
+		err = ioutil.WriteFile(dir+fileName, fileBytes, 0666)
+		if err != nil {
+			log.Print(err)
+		}
+
+		item.Image = fileName
+	}
+	
 	data, err := json.Marshal(item)
 	if err != nil {
 		log.Print(err)
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
+	
 	writer.Header().Set("Content-Type", "application/json")
 	_, err = writer.Write(data)
 	if err != nil {
@@ -144,10 +165,13 @@ func (s *Server) handleRemoveByID(writer http.ResponseWriter, request *http.Requ
 		http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
+	
 	writer.Header().Set("Content-Type", "application/json")
 	_, err = writer.Write(data)
 	if err != nil {
 		log.Print(err)
 	}
 }
+
+
+

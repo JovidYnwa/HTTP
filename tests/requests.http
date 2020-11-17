@@ -1,0 +1,8 @@
+
+GET http://localhost:9999/banners.getAll
+
+GET http://localhost:9999/banners.getById?id=1
+
+GET http://localhost:9999/banners.save?title=testttitle&content=testcontent&link=testlink&button=testbutton
+
+GET http://localhost:9999/banners.RemoveById?id=1

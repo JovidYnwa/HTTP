@@ -3,25 +3,16 @@ package banners
 import (
 	"context"
 	"errors"
-	"log"
-	"strconv"
-	"strings"
+	"os"
 	"sync"
 )
 
-// Service type
 type Service struct {
-	mu    sync.RWMutex
-	items []*Banner
-	index int64
+	nextBannerID int64
+	mu           sync.RWMutex
+	items        []*Banner
 }
 
-// NewService some
-func NewService() *Service {
-	return &Service{items: make([]*Banner, 0)}
-}
-
-// Banner some
 type Banner struct {
 	ID      int64
 	Title   string
@@ -31,23 +22,19 @@ type Banner struct {
 	Image   string
 }
 
-// All returns everything
-func (s *Service) All(ctx context.Context) ([]*Banner, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.items != nil {
-		return s.items, nil
-	}
-
-	return nil, errors.New("No banners")
+func NewService() *Service {
+	return &Service{items: make([]*Banner, 0)}
 }
 
-// ByID returns by id
+//All возращает все существующие баннеры
+func (s *Service) All(ctx context.Context) ([]*Banner, error) {
+	return s.items, nil
+}
+
+//ByID возращает баннер по идентификатору
 func (s *Service) ByID(ctx context.Context, id int64) (*Banner, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-
 	for _, banner := range s.items {
 		if banner.ID == id {
 			return banner, nil
@@ -57,62 +44,44 @@ func (s *Service) ByID(ctx context.Context, id int64) (*Banner, error) {
 	return nil, errors.New("item not found")
 }
 
-// Save saves
+//Save сохраняет/обновляет баннер
 func (s *Service) Save(ctx context.Context, item *Banner) (*Banner, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if item.ID == 0 {
-		s.index++
-		img := ""
-		if item.Image != "" {
-			im := strings.Split(item.Image, ".")
-			img = strconv.FormatInt(s.index, 10) + "." + im[1]
-		}
-		newBanner := &Banner{
-			ID:      s.index,
-			Title:   item.Title,
-			Content: item.Content,
-			Button:  item.Button,
-			Link:    item.Link,
-			Image:   img,
-		}
-		s.items = append(s.items, newBanner)
-		return newBanner, nil
-	}
-	sBanner, err := s.ByID(ctx, item.ID)
-	if err != nil {
-		log.Print(err)
-		//http.Error(writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return nil, errors.New("item not found")
-	}
-	sBanner.Button = item.Button
-	sBanner.Title = item.Title
-	sBanner.Content = item.Content
-	sBanner.Link = item.Link
-	if item.Image != "" {
-		im := strings.Split(item.Image, ".")
-		img := strconv.FormatInt(item.ID, 10) + "." + im[1]
-		sBanner.Image = img
-	}
-	return sBanner, nil
 
+	for _, banner := range s.items {
+		if banner.ID == item.ID {
+			banner.Title = item.Title
+			banner.Content = item.Content
+			banner.Link = item.Link
+			banner.Button = item.Button
+			return banner, nil
+		}
+	}
+
+	s.nextBannerID++
+	item.ID = s.nextBannerID
+	s.items = append(s.items, item)
+
+	return s.items[len(s.items)-1], nil
 }
 
-// RemoveByID removes
+//RemoveByID удаляет баннер по идентификатору
 func (s *Service) RemoveByID(ctx context.Context, id int64) (*Banner, error) {
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	sBanner, err := s.ByID(ctx, id)
-	if err != nil {
-		log.Print(err)
-		return nil, errors.New("item not found")
-	}
-	for i, banner := range s.items {
+	for index, banner := range s.items {
 		if banner.ID == id {
-			s.items = append(s.items[:i], s.items[i+1:]...)
-			break
+			s.items = append(s.items[:index], s.items[index+1:]...)
+			pathToImage := "web/banners/" + banner.Image
+			err := os.Remove(pathToImage)
+			if err != nil {
+				return nil, err
+			}
+			return banner, nil
 		}
 	}
 
-	return sBanner, nil
+	return nil, errors.New("item not found")
 }

@@ -1,53 +1,33 @@
 package main
 
 import (
-	"log"
 	"net"
 	"net/http"
+	"os"
 
 	"github.com/JovidYnwa/http/cmd/app"
 	"github.com/JovidYnwa/http/pkg/banners"
-	"github.com/JovidYnwa/http/pkg/server"
 )
 
 func main() {
-	/* 	banner := []banners.Banner{{ID: 1,
-	   		Titile:  "somet title",
-	   		Content: "some content",
-	   		Button:  "some button",
-	   		Link:    "some link",
-	   	}}
-	   	log.Println(banner) */
+	host := "0.0.0.0"
+	port := "9999"
 
-	mux := http.NewServeMux()
-	greetingSvc := banners.NewService()
-	server := app.NewServer(mux, greetingSvc)
-	server.Init()
-
-	httpServer := http.Server{
-		Addr:    "0.0.0.0:9999",
-		Handler: server, //myHandler
-	}
-
-	log.Println("server start")
-	err := httpServer.ListenAndServe()
-	if err != nil {
-		log.Fatal("http serv error: ", err)
+	if err := execute(host, port); err != nil {
+		os.Exit(1)
 	}
 }
 
-/* log.Println("handler{}.ServerHttp()")
-writer.Write([]byte("hello http"))
-*/
-
-//lecture 22
 func execute(host string, port string) (err error) {
-	srv := server.NewServer(net.JoinHostPort(host, port))
+	mux := http.NewServeMux()
+	bannersSvc := banners.NewService()
+	server := app.NewServer(mux, bannersSvc)
+	server.Init()
 
-	srv.Register("/payments/{id}/{ds}", func(req *server.Request) {
-		id := req.PathParams["id"]
-		log.Print(id)
-	})
-	log.Print("server run in ", host+":"+port)
-	return srv.Start()
+	srv := &http.Server{
+		Addr:    net.JoinHostPort(host, port),
+		Handler: server,
+	}
+
+	return srv.ListenAndServe()
 }
